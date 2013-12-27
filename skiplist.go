@@ -8,7 +8,6 @@ package collections
 
 import (
 	"math/rand"
-	"reflect"
 	"time"
 )
 
@@ -16,22 +15,24 @@ const (
 	SKIPLISTNODENORMAL = 0
 	SKIPLISTNODEHEAD   = 1
 	SKIPLISTNODEFOOT   = 2
+
+	SKIPLIST_IDX_INT    = 0
+	SKIPLIST_IDX_UINT   = 1
+	SKIPLIST_IDX_STRING = 2
+	SKIPLIST_IDX_FLOAT  = 4
+	SKIPLIST_IDX_TIME   = 8
 )
 
 const SKIPLISTMAXLEVEL = 16
 
-type SkipListNodeCmp interface {
-	NodeKeyCmper(key1 interface{}, keylen1 uint32,
-		key2 interface{}, keylen2 uint32) (rc int8)
-}
-
 type SkipList struct {
 	Level    uint8
+	IdxType  uint8
 	MaxLevel uint8
 	Head     []SkipListNode
-	Foot     []SkipListNode
-	Root     *SkipListNode
-	Cmper    *SkipListNodeCmp
+	/* Foot     []SkipListNode */
+	/* Root     *SkipListNode */
+	Cmper func(key1, key2 interface{}) uint8
 }
 
 type SkipListNode struct {
@@ -41,10 +42,10 @@ type SkipListNode struct {
 	Keylen   uint32
 	Value    interface{}
 	Vallen   uint64
-	Next     *SkipListNode
+	Next     []SkipListNode
 }
 
-func SkipListCreate(maxLevel uint8, cmp *SkipListNodeCmp) (sl *SkipList, error err) {
+func SkipListCreate(maxLevel uint8, idxType uint8) (sl *SkipList, error err) {
 	if 0 == maxLevel {
 		sl = nil
 		err = "create skiplist is fail."
@@ -52,19 +53,29 @@ func SkipListCreate(maxLevel uint8, cmp *SkipListNodeCmp) (sl *SkipList, error e
 	}
 	sl := new(SkipList)
 	sl.MaxLevel = maxLevel
+	sl.IdxType = idxType
 	sl.Level = 0
 	sl.Root = nil
 	sl.Head = make([]SkipListNode, maxLevel)
 	sl.Foot = make([]SkipListNode, maxLevel)
 	for i := 0; i < maxLevel; i++ {
 		sl.Head[i].Property = SKIPLISTNODEHEAD
-		sl.Foot[i].Property = SKIPLISTNODEFOOT
-		sl.Head[i].Next = &(sl.Foot[i])
+		/* sl.Foot[i].Property = SKIPLISTNODEFOOT */
+		/* sl.Head[i].Next = &(sl.Foot[i]) */
 	}
-	if nil == cmp {
-		sl.Cmper = &(sl.NodeKeyCmp)
-	} else {
-		sl.Cmper = cmp
+	switch idxType {
+	case SKIPLIST_IDX_INT:
+		sl.Cmper = intCmper
+	case SKIPLIST_IDX_UINT:
+		sl.Cmper = uintCmper
+	case SKLIPLIST_IDX_FLOAT:
+		sl.Cmper = floatCmper
+	case SKIPLIST_IDX_STRING:
+		sl.Cmper = stringCmper
+	case SKIPLIST_IDX_TIME:
+		sl.Cmper = timeCmper
+	default:
+		sl.Cmper = stringCmper
 	}
 	err = nil
 	return
@@ -76,22 +87,26 @@ func randLevel() (level uint8) {
 	return
 }
 
-func cmpResult(v int8) (rc int8) {
-	switch rc {
-	case rc > 0:
-		return 1
-	case rc == 0:
-		return 0
-	case rc < 0:
+func intCmper(key1, key2 int64) int8 {
+	if key1 < key2 {
 		return -1
+	} else if key1 > key2 {
+		return 1
+	} else {
+		return 0
 	}
 }
-func intCmper(key1, key2 int64) int8 {
-	return cmpResult(key1 - key2)
-}
+
 func uintCmper(key1, key2 uint64) int8 {
-	return cmpResult(key1 - key2)
+	if key1 < key2 {
+		return -1
+	} else if key1 > key2 {
+		return 1
+	} else {
+		return 0
+	}
 }
+
 func floatCmper(key1, key2 float64) int8 {
 	rc := key1 - key2
 	switch rc {
@@ -121,23 +136,52 @@ func stringCmper(key1 string, keylen1 uint32,
 	//thanks huanshang
 }
 
-func timeCmper(key1, key2 string) uint8 {
-}
-
-func (sl *SkipList) NodeKeyCmp(key1 interface{}, keylen1 uint32,
-	key2 interface{}, keylen2 uint32) (rc int8) {
-	t1 := TypeOf(key1)
-	t2 := TypeOf(key2)
-	if t1 == t2 {
-		switch {
-		case t1 == reflect.Int:
-			rc = key1 - key2
-			return cmpResult(rc)
-		}
-	} else {
-	}
-}
 func (sl *SkipList) Insert(key interface{}, uint32 keylen,
 	val interface{}, uint64 vallen) {
+	update := make(*SkipListNode, sl.MaxLevel)
 
+	l := &(sl.Head[sl.Level])
+	for i := sl.Level; i >= 0; i-- {
+		for l = l.Next; l != nil; l = l.Next {
+			if sl.Cmper(l.Key, key) < 0 {
+				update[i] = l
+			}
+		}
+	}
+
+	k := randLevel()
+	if k > sl.Level {
+		sl.Level = k
+	}
+
+	n := new(SkipListNode)
+	n.Key = key
+	n.Level = k
+	n.Value = val
+	n.Next = make(*SkipListNode, k)
+
+	for i := k; i >= 0; i-- {
+		p := update[i]
+		n.Next[i] = p.Next[i]
+		p.Next[i] = n
+	}
+	return
+}
+
+func (sl *SkipList) Find(key interface{}) interface{} {
+	l := &(sl.Head[sl.Level])
+	for i := sl.Level; i >= 0; i-- {
+		for l = l.Next; ; l = l.Next {
+			if nil == l {
+			} else {
+				if sl.Cmper(l.Key, key) < 0 {
+					update[i] = l
+				}
+			}
+		}
+	}
+
+}
+
+func (sl *SkipList) Search(from, to interface{}) []interface{} {
 }
