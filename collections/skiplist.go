@@ -64,7 +64,7 @@ func (s *SkipList) find(key interface{}, forUpdate []*SkipListNode) *SkipListNod
 }
 
 func (s *SkipList) randomLevel() (n int) {
-	for n = 0; n < s.MaxLevel && rand.Float64() < p; n++ {
+	for n = 0; n < s.Level()+1 && rand.Float64() < p; n++ {
 	}
 	return
 }
@@ -116,6 +116,19 @@ func (s *SkipList) Insert(key, value interface{}) {
 		s.footer = newNode
 	}
 
+}
+
+func (s *SkipList) Seek(key interface{}) *SkipListNode {
+	if key == nil {
+		return nil
+	}
+
+	findNode := s.find(key, nil)
+	if findNode != nil && findNode.Key == key {
+		return findNode
+	}
+
+	return nil
 }
 
 func (s *SkipList) Delete(key interface{}) {

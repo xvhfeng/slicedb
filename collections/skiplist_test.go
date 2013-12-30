@@ -2,6 +2,7 @@ package collections
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 )
 
@@ -17,7 +18,7 @@ func (s *SkipList) printRepr() {
 	}
 
 	for node := s.header.Next(); node != nil; node = node.Next() {
-		fmt.Printf("%v: %v (level %d)\n", node.Key, node.value, len(node.next))
+		fmt.Printf("%v: %v (level %d)\n", node.Key, node.value, len(node.next)-1)
 		for i, link := range node.next {
 			if link != nil {
 				fmt.Printf("\t%d: -> %v\n", i, link.Key)
@@ -29,7 +30,26 @@ func (s *SkipList) printRepr() {
 	fmt.Println()
 }
 
-func TestInitialization(t *testing.T) {
+func (s *SkipList) printList() {
+	for i := s.Level(); i >= 0; i-- {
+		fmt.Printf("level%d:", i)
+		for node := s.header; node != nil; node = node.next[i] {
+			if node.next[i] != nil {
+				fmt.Printf("%v->", node.next[i].Key)
+			} else {
+				fmt.Println("END")
+			}
+		}
+	}
+}
+
+func TestInsert(t *testing.T) {
+	s := initIntList()
+
+	s.printList()
+}
+
+func initIntList() SkipList {
 	s := SkipList{
 		MaxLevel: SKIPLISTMAXLEVEL,
 		header: &SkipListNode{
@@ -40,9 +60,16 @@ func TestInitialization(t *testing.T) {
 		},
 	}
 
-	s.Insert(1, "1")
-	s.Insert(2, "2")
-	s.Insert(3, "3")
+	for i := 1; i <= 1000; i++ {
+		s.Insert(i, "value"+strconv.Itoa(i))
+	}
 
-	s.printRepr()
+	return s
+}
+
+func TestSeek(t *testing.T) {
+	s := initIntList()
+	i := 381
+	node := s.Seek(i)
+	fmt.Println(strconv.Itoa(i), ":", node)
 }
