@@ -61,7 +61,8 @@ func SkipListCreate(maxLevel uint8, idxType uint8) (sl *SkipList, error err) {
 	for i := 0; i < maxLevel; i++ {
 		sl.Head[i].Property = SKIPLISTNODEHEAD
 		/* sl.Foot[i].Property = SKIPLISTNODEFOOT */
-		/* sl.Head[i].Next = &(sl.Foot[i]) */
+		sl.Head[i].Next = SKIPLISTFOOT
+		/* sl.Foot[i].Next = nil */
 	}
 	switch idxType {
 	case SKIPLIST_IDX_INT:
@@ -137,20 +138,35 @@ func stringCmper(key1 string, keylen1 uint32,
 }
 
 func (sl *SkipList) Insert(key interface{}, uint32 keylen,
-	val interface{}, uint64 vallen) {
+	val interface{}, uint64 vallen) (rc bool, err error) {
 	update := make(*SkipListNode, sl.MaxLevel)
-
-	l := &(sl.Head[sl.Level])
+	p := &(sl.Head[sl.Level])
 	for i := sl.Level; i >= 0; i-- {
-		for l = l.Next; l != nil; l = l.Next {
-			if sl.Cmper(l.Key, key) < 0 {
-				update[i] = l
+		for {
+			q := &(p.Next[i])
+			if nil == q {
+				break
+			} else {
+				r := sl.Cmper(q.Key, key)
+				if 0 > r {
+					ipdate[i] = q
+				} else if 0 == r {
+					err = "the key is exist."
+					rc = false
+					return
+				} else {
+					break
+				}
 			}
+			p = q
 		}
 	}
 
 	k := randLevel()
 	if k > sl.Level {
+		for i := sl.Level; i < k; i++ {
+			update[i] = &(sl.Header[i])
+		}
 		sl.Level = k
 	}
 
@@ -165,23 +181,77 @@ func (sl *SkipList) Insert(key interface{}, uint32 keylen,
 		n.Next[i] = p.Next[i]
 		p.Next[i] = n
 	}
+	rc = true
 	return
 }
 
-func (sl *SkipList) Find(key interface{}) interface{} {
-	l := &(sl.Head[sl.Level])
+func (sl *SkipList) Find(key interface{}) (rc interface{}, err error) {
+	update := make(*SkipListNode, sl.MaxLevel)
+	p := &(sl.Head[sl.Level])
 	for i := sl.Level; i >= 0; i-- {
-		for l = l.Next; ; l = l.Next {
-			if nil == l {
+		for {
+			q := &(p.Next[i])
+			if nil == q {
+				break
 			} else {
-				if sl.Cmper(l.Key, key) < 0 {
-					update[i] = l
+				r := sl.Cmper(q.Key, from)
+				if 0 == r {
+					rc = q.Value
+					return
+				} else if 0 < r {
+					break
 				}
 			}
+			p = q
+		}
+	}
+	rc = nil
+	err = "the object is not exist"
+	return
+}
+
+func (sl *SkipList) Search(from, to interface{}) (
+	rc map[interface{}]interface{}, err error) {
+
+	update := make(*SkipListNode, sl.MaxLevel)
+	p := &(sl.Head[sl.Level])
+	for i := sl.Level; i >= 0; i-- {
+		for {
+			q := &(p.Next[i])
+			if nil == q {
+				break
+			} else {
+				r := sl.Cmper(q.Key, from)
+				if 0 > r {
+					update[i] = q
+				} else {
+					break
+				}
+			}
+			p = q
 		}
 	}
 
-}
-
-func (sl *SkipList) Search(from, to interface{}) []interface{} {
+	p = update[0]
+	if nil == p {
+		err = "not found keys slice"
+		rc = nil
+		return
+	}
+	for {
+		p = p.Next[0]
+		if nil != p {
+			rc1 := sl.Cmper(p.Key, from)
+			rc2 := sl.Cmper(p.Key, to)
+			if 0 <= rc1 && 0 >= rc2 {
+				rc[p.Key] = p.Value
+			} else {
+				break
+			}
+		} else {
+			break
+		}
+	}
+	err = nil
+	return
 }
