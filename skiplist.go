@@ -45,6 +45,17 @@ type SkipListNode struct {
 	Next     []SkipListNode
 }
 
+/*
+huanshan:
+    the func name is XXXCreate not XXXNew,because from c.
+    in the c,create mapping destroy,init mapping free.
+    because create means create a memory ptr and init the memory,
+    destroy means free the memory ptr and set null to ptr;
+    init means it exist a memory ptr(in stack or heap)
+    then set 0 to the memory;
+    free means release the memory and the ptr is not change.
+    new?? there is no New func in C
+*/
 func SkipListCreate(maxLevel uint8, idxType uint8) (sl *SkipList, error err) {
 	if 0 == maxLevel {
 		sl = nil
