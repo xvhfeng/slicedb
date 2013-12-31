@@ -3,6 +3,7 @@ package collections
 import (
 	"fmt"
 	"math/rand"
+	"time"
 )
 
 const p = 0.25
@@ -178,4 +179,40 @@ func (s *SkipList) Remove(key interface{}) {
 		s.header.next = s.header.next[:s.Level()]
 	}
 	fmt.Println("Delete ", key, " ok. length:", s.length)
+}
+
+func New(compare func(l, r interface{}) bool) *SkipList {
+	s := &SkipList{
+		MaxLevel: SKIPLISTMAXLEVEL,
+		header: &SkipListNode{
+			next: []*SkipListNode{nil},
+		},
+		compare: compare,
+	}
+
+	return s
+}
+
+func NewInt() *SkipList {
+	s := New(func(l, r interface{}) bool {
+		return l.(int) < r.(int)
+	})
+
+	return s
+}
+
+func NewString() *SkipList {
+	s := New(func(l, r interface{}) bool {
+		return l.(string) < r.(string)
+	})
+
+	return s
+}
+
+func NewFloat64() *SkipList {
+	s := New(func(l, r interface{}) bool {
+		return l.(float64) < r.(float64)
+	})
+
+	return s
 }

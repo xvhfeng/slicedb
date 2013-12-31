@@ -50,16 +50,8 @@ func TestAdd(t *testing.T) {
 	s.printList()
 }
 
-func initIntList() SkipList {
-	s := SkipList{
-		MaxLevel: SKIPLISTMAXLEVEL,
-		header: &SkipListNode{
-			next: []*SkipListNode{nil},
-		},
-		compare: func(l, r interface{}) bool {
-			return l.(int) < r.(int)
-		},
-	}
+func initIntList() *SkipList {
+	s := NewInt()
 
 	for i := 1; i <= 1000; i++ {
 		s.Add(i, "value"+strconv.Itoa(i))
