@@ -1,7 +1,9 @@
 package collections
 
 import (
+	"fmt"
 	"math/rand"
+	"time"
 )
 
 const p = 0.25
@@ -64,12 +66,12 @@ func (s *SkipList) find(key interface{}, forUpdate []*SkipListNode) *SkipListNod
 }
 
 func (s *SkipList) randomLevel() (n int) {
-	for n = 0; n < s.MaxLevel && rand.Float64() < p; n++ {
+	for n = 0; n < s.Level()+1 && n < s.MaxLevel && rand.Float64() < p; n++ {
 	}
 	return
 }
 
-func (s *SkipList) Insert(key, value interface{}) {
+func (s *SkipList) Add(key, value interface{}) {
 	currentLevel := s.Level()
 	if key == nil {
 		panic("key can not nil when insert")
@@ -116,16 +118,101 @@ func (s *SkipList) Insert(key, value interface{}) {
 		s.footer = newNode
 	}
 
+	fmt.Println("Add key:", key, " ok. length:", s.length)
+
 }
 
-func (s *SkipList) Delete(key interface{}) {
+func (s *SkipList) Seek(key interface{}) *SkipListNode {
+	if key == nil {
+		return nil
+	}
+
+	findNode := s.find(key, nil)
+	if findNode != nil && findNode.Key == key {
+		return findNode
+	}
+
+	return nil
+}
+
+func (s *SkipList) Get(key interface{}) (value interface{}) {
+	node := s.Seek(key)
+	if node != nil {
+		return node.value
+	}
+
+	return nil
+}
+
+func (s *SkipList) Remove(key interface{}) {
+	currentLevel := s.Level()
 	if key == nil {
 		return
 	}
-	//forUpdate := make([]*SkipListNode, currentLevel+1, s.MaxLevel)
-	//findNode = s.find(key, forUpdate)
+	forUpdate := make([]*SkipListNode, currentLevel+1, s.MaxLevel)
+	findNode := s.find(key, forUpdate)
+
+	if findNode == nil || findNode.Key != key {
+		return
+	}
+
+	if s.footer == findNode {
+		s.footer = findNode.previous
+	}
+
+	findNode.previous.next[0] = findNode.next[0]
+	if findNode.next[0] != nil {
+		findNode.next[0].previous = findNode.previous
+	}
+	s.length--
+
+	for i := len(forUpdate) - 1; i > 0; i-- {
+		//fmt.Println("forUpdate:", i, forUpdate[i])
+		//fmt.Println("findNode.next:", i, findNode.next[i])
+
+		if forUpdate[i].next[i] == findNode {
+			forUpdate[i].next[i] = findNode.next[i]
+		}
+	}
+
+	for s.Level() > 0 && s.header.next[s.Level()] == nil {
+		s.header.next = s.header.next[:s.Level()]
+	}
+	fmt.Println("Delete ", key, " ok. length:", s.length)
 }
 
-type Comparable interface {
-	Compare(l, r interface{}) bool
+func New(compare func(l, r interface{}) bool) *SkipList {
+	s := &SkipList{
+		MaxLevel: SKIPLISTMAXLEVEL,
+		header: &SkipListNode{
+			next: []*SkipListNode{nil},
+		},
+		compare: compare,
+	}
+
+	return s
+}
+
+func NewInt() *SkipList {
+	s := New(func(l, r interface{}) bool {
+		return l.(int) < r.(int)
+	})
+
+	return s
+}
+
+func NewString() *SkipList {
+	s := New(func(l, r interface{}) bool {
+		return l.(string) < r.(string)
+	})
+
+	return s
+}
+
+func NewFloat64() *SkipList {
+	s := New(func(l, r interface{}) bool {
+		return l.(float64) < r.(float64)
+	})
+
+	return s
 }
