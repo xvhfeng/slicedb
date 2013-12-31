@@ -41,9 +41,10 @@ func (s *SkipList) printList() {
 			}
 		}
 	}
+	fmt.Println("footer:", s.footer)
 }
 
-func TestInsert(t *testing.T) {
+func TestAdd(t *testing.T) {
 	s := initIntList()
 
 	s.printList()
@@ -61,7 +62,7 @@ func initIntList() SkipList {
 	}
 
 	for i := 1; i <= 1000; i++ {
-		s.Insert(i, "value"+strconv.Itoa(i))
+		s.Add(i, "value"+strconv.Itoa(i))
 	}
 
 	return s
@@ -72,4 +73,18 @@ func TestSeek(t *testing.T) {
 	i := 381
 	node := s.Seek(i)
 	fmt.Println(strconv.Itoa(i), ":", node)
+}
+
+func TestGet(t *testing.T) {
+	s := initIntList()
+	i := 381
+	value := s.Get(i)
+	fmt.Println(strconv.Itoa(i), ":", value)
+}
+
+func TestRemove(t *testing.T) {
+	s := initIntList()
+	s.printList()
+	s.Remove(226)
+	s.printList()
 }
