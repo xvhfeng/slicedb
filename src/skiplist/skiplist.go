@@ -7,8 +7,10 @@
 package skiplist
 
 import (
+	"../octp_time"
+
+	"fmt"
 	"math/rand"
-	"slicedb/octp_time"
 	"time"
 )
 
@@ -27,23 +29,136 @@ const (
 const SKIPLISTMAXLEVEL = 16
 
 type SkipList struct {
-	Level    uint8
-	IdxType  uint8
-	MaxLevel uint8
-	Head     []SkipListNode
-	/* Foot     []SkipListNode */
-	/* Root     *SkipListNode */
-	Cmper func(key1, key2 interface{}) uint8
+	Level    int
+	IdxType  int
+	MaxLevel int
+	Head     *SkipListNode
+	Cmper    func(key1, key2 interface{}) (rc int8, err error)
 }
 
 type SkipListNode struct {
-	Level    uint64
-	Property uint8
+	Level    int
+	Property int
 	Key      interface{}
-	Keylen   uint32
 	Value    interface{}
-	Vallen   uint64
-	Next     []SkipListNode
+	Next     []*SkipListNode
+}
+
+func randLevel() (level int) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	level = int(r.Int63() % int64(SKIPLISTMAXLEVEL))
+	return
+}
+
+func intCmper(key1, key2 interface{}) (rc int8, err error) {
+	var k1, k2 int64
+	var ok bool
+	if k1, ok = key1.(int64); !ok {
+		err = fmt.Errorf("the argument is not int type")
+		return
+	}
+	if k2, ok = key2.(int64); !ok {
+		err = fmt.Errorf("the argument is not int type")
+		return
+	}
+	if k1 < k2 {
+		rc = -1
+		return
+	} else if k1 > k2 {
+		rc = 1
+		return
+	} else {
+		rc = 0
+		return
+	}
+	err = fmt.Errorf("the int key cannot compare")
+	rc = 0
+	return
+}
+
+func uintCmper(key1, key2 interface{}) (rc int8, err error) {
+	var k1, k2 uint64
+	var ok bool
+	if k1, ok = key1.(uint64); !ok {
+		err = fmt.Errorf("the argument is not uint type")
+		return
+	}
+	if k2, ok = key2.(uint64); !ok {
+		err = fmt.Errorf("the argument is not uint type")
+		return
+	}
+	if k1 < k2 {
+		rc = -1
+		return
+	} else if k1 > k2 {
+		rc = 1
+		return
+	} else {
+		rc = 0
+		return
+	}
+	err = fmt.Errorf("the uint key cannot compare")
+	rc = 0
+	return
+}
+
+func floatCmper(key1, key2 interface{}) (rc int8, err error) {
+	var k1, k2 float64
+	var ok bool
+	if k1, ok = key1.(float64); !ok {
+		err = fmt.Errorf("the argument is not float type")
+		return
+	}
+	if k2, ok = key2.(float64); !ok {
+		err = fmt.Errorf("the argument is not float type")
+		return
+	}
+	if k1 < k2 {
+		rc = -1
+		return
+	} else if k1 > k2 {
+		rc = 1
+		return
+	} else {
+		rc = 0
+		return
+	}
+	err = fmt.Errorf("the float key cannot compare")
+	rc = 0
+	return
+}
+
+/*
+   the string cmper is not suppering for Mars lanagreee
+   and it only for normal word
+*/
+func stringCmper(key1, key2 interface{}) (rc int8, err error) {
+	var k1, k2 string
+	var ok bool
+	if k1, ok = key1.(string); !ok {
+		err = fmt.Errorf("the argument is not string type")
+		return
+	}
+	if k2, ok = key2.(string); !ok {
+		err = fmt.Errorf("the argument is not string type")
+		return
+	}
+	err = nil
+	if k1 > k2 {
+		rc = 1
+		return
+	} else if k1 < k2 {
+		rc = -1
+		return
+	} else {
+		rc = 0
+		return
+	}
+	err = fmt.Errorf("the string key cannot compare")
+	rc = 0
+	return
+	//please put into the code with rune
+	//thanks huanshang
 }
 
 /*
@@ -57,36 +172,33 @@ huanshan:
     free means release the memory and the ptr is not change.
     new?? there is no New func in C
 */
-func SkipListCreate(maxLevel uint8, idxType uint8) (sl *SkipList, error err) {
-	if 0 == maxLevel {
+func SkipListCreate(maxLevel int, idxType int) (sl *SkipList, err error) {
+	if 0 >= maxLevel {
 		sl = nil
-		err = "create skiplist is fail."
+		err = fmt.Errorf("create skiplist is fail.")
 		return
 	}
-	sl := new(SkipList)
+	sl = new(SkipList)
 	sl.MaxLevel = maxLevel
 	sl.IdxType = idxType
 	sl.Level = 0
-	sl.Root = nil
-	sl.Head = make([]SkipListNode, maxLevel)
-	sl.Foot = make([]SkipListNode, maxLevel)
+	sl.Head = new(SkipListNode)
+	sl.Head.Next = make([]*SkipListNode, maxLevel)
+	sl.Head.Property = SKIPLISTNODEHEAD
 	for i := 0; i < maxLevel; i++ {
-		sl.Head[i].Property = SKIPLISTNODEHEAD
-		/* sl.Foot[i].Property = SKIPLISTNODEFOOT */
-		sl.Head[i].Next = SKIPLISTFOOT
-		/* sl.Foot[i].Next = nil */
+		sl.Head.Next[i] = nil
 	}
 	switch idxType {
 	case SKIPLIST_IDX_INT:
 		sl.Cmper = intCmper
 	case SKIPLIST_IDX_UINT:
 		sl.Cmper = uintCmper
-	case SKLIPLIST_IDX_FLOAT:
+	case SKIPLIST_IDX_FLOAT:
 		sl.Cmper = floatCmper
 	case SKIPLIST_IDX_STRING:
 		sl.Cmper = stringCmper
 	case SKIPLIST_IDX_TIME:
-		sl.Cmper = octp_time.timeCmper
+		sl.Cmper = octp_time.TimeCmper
 	default:
 		sl.Cmper = stringCmper
 	}
@@ -94,167 +206,128 @@ func SkipListCreate(maxLevel uint8, idxType uint8) (sl *SkipList, error err) {
 	return
 }
 
-func randLevel() (level uint8) {
-	r := rand.New(time.Now().UnixNano())
-	level = r.Int63() % SKIPLISTMAXLEVEL
-	return
-}
-
-func intCmper(key1, key2 int64) int8 {
-	if key1 < key2 {
-		return -1
-	} else if key1 > key2 {
-		return 1
-	} else {
-		return 0
-	}
-}
-
-func uintCmper(key1, key2 uint64) int8 {
-	if key1 < key2 {
-		return -1
-	} else if key1 > key2 {
-		return 1
-	} else {
-		return 0
-	}
-}
-
-func floatCmper(key1, key2 float64) int8 {
-	rc := key1 - key2
-	switch rc {
-	case rc > 0:
-		return 1
-	case rc == 0:
-		return 0
-	case rc < 0:
-		return -1
-	}
-}
-
-/*
-   the string cmper is not suppering for Mars lanagreee
-   and it only for normal word
-*/
-func stringCmper(key1 string, keylen1 uint32,
-	key2 string, keylen2 uint32) int8 {
-	if key1 > key2 {
-		return 1
-	} else if key1 < key2 {
-		return -1
-	} else {
-		return 0
-	}
-	//please put into the code with rune
-	//thanks huanshang
-}
-
-func (sl *SkipList) Insert(key interface{}, uint32 keylen,
-	val interface{}, uint64 vallen) (rc bool, err error) {
-	update := make(*SkipListNode, sl.MaxLevel)
-	p := &(sl.Head[sl.Level])
+func (sl *SkipList) Insert(key, val interface{}) (err error) {
+	update := make([]*SkipListNode, sl.MaxLevel)
+	var r int8
+	p := sl.Head
 	for i := sl.Level; i >= 0; i-- {
 		for {
-			q := &(p.Next[i])
+			q := p.Next[i]
 			if nil == q {
+				update[i] = p
 				break
 			} else {
-				r := sl.Cmper(q.Key, key)
+				r, err = sl.Cmper(q.Key, key)
+				if nil != err {
+					return
+				}
 				if 0 > r {
-					ipdate[i] = q
+					p = q
 				} else if 0 == r {
-					err = "the key is exist."
-					rc = false
+					err = fmt.Errorf("the key is exist.")
 					return
 				} else {
+					update[i] = p
 					break
 				}
 			}
-			p = q
 		}
 	}
 
 	k := randLevel()
 	if k > sl.Level {
-		for i := sl.Level; i < k; i++ {
-			update[i] = &(sl.Header[i])
+		for i := sl.Level + 1; i <= k; i++ {
+			update[i] = sl.Head
 		}
 		sl.Level = k
 	}
-
 	n := new(SkipListNode)
 	n.Key = key
 	n.Level = k
 	n.Value = val
-	n.Next = make(*SkipListNode, k)
-
-	for i := k; i >= 0; i-- {
-		p := update[i]
-		n.Next[i] = p.Next[i]
-		p.Next[i] = n
+	n.Next = make([]*SkipListNode, k+1)
+	for i := 0; i <= k; i++ {
+		n.Next[i] = update[i].Next[i]
+		update[i].Next[i] = n
 	}
-	rc = true
 	return
 }
 
 func (sl *SkipList) Find(key interface{}) (rc interface{}, err error) {
-	update := make(*SkipListNode, sl.MaxLevel)
-	p := &(sl.Head[sl.Level])
+	var r int8
+	p := sl.Head
 	for i := sl.Level; i >= 0; i-- {
 		for {
-			q := &(p.Next[i])
+			q := p.Next[i]
 			if nil == q {
 				break
 			} else {
-				r := sl.Cmper(q.Key, from)
-				if 0 == r {
+				r, err = sl.Cmper(q.Key, key)
+				if nil != err {
+					return
+				}
+				if 0 > r {
+					p = q
+				} else if 0 == r {
 					rc = q.Value
 					return
-				} else if 0 < r {
+				} else {
 					break
 				}
 			}
-			p = q
 		}
 	}
+
 	rc = nil
-	err = "the object is not exist"
+	err = fmt.Errorf("the object is not exist")
 	return
 }
 
 func (sl *SkipList) Search(from, to interface{}) (
 	rc map[interface{}]interface{}, err error) {
-
-	update := make(*SkipListNode, sl.MaxLevel)
-	p := &(sl.Head[sl.Level])
+	update := make([]*SkipListNode, sl.MaxLevel)
+	var r int8
+	p := sl.Head
 	for i := sl.Level; i >= 0; i-- {
 		for {
-			q := &(p.Next[i])
+			q := p.Next[i]
 			if nil == q {
+				update[i] = p
 				break
 			} else {
-				r := sl.Cmper(q.Key, from)
+				r, err = sl.Cmper(q.Key, from)
+				if nil != err {
+					return
+				}
 				if 0 > r {
-					update[i] = q
+					p = q
 				} else {
+					update[i] = p
 					break
 				}
 			}
-			p = q
 		}
 	}
 
 	p = update[0]
 	if nil == p {
-		err = "not found keys slice"
+		err = fmt.Errorf("not found keys slice")
 		rc = nil
 		return
 	}
+	var rc1, rc2 int8
+	rc = make(map[interface{}]interface{})
 	for {
 		p = p.Next[0]
 		if nil != p {
-			rc1 := sl.Cmper(p.Key, from)
-			rc2 := sl.Cmper(p.Key, to)
+			rc1, err = sl.Cmper(p.Key, from)
+			if nil != err {
+				return
+			}
+			rc2, err = sl.Cmper(p.Key, to)
+			if nil != err {
+				return
+			}
 			if 0 <= rc1 && 0 >= rc2 {
 				rc[p.Key] = p.Value
 			} else {
@@ -265,5 +338,41 @@ func (sl *SkipList) Search(from, to interface{}) (
 		}
 	}
 	err = nil
+	return
+}
+
+func (sl *SkipList) Print() (err error) {
+	for i := sl.Level; i >= 0; i-- {
+		p := sl.Head
+		for {
+			q := p.Next[i]
+			if nil == q {
+				break
+			} else {
+				switch sl.IdxType {
+				case SKIPLIST_IDX_INT:
+					var k, v int64
+					var ok bool
+					if k, ok = q.Key.(int64); !ok {
+						return
+					}
+					if v, ok = q.Value.(int64); !ok {
+						return
+					}
+					fmt.Printf("%d-%d  ", k, v)
+				case SKIPLIST_IDX_UINT:
+					fmt.Print("%10d(%10d)  ", q.Key, q.Value)
+				case SKIPLIST_IDX_FLOAT:
+					fmt.Print("%10f(%10f)  ", q.Key, q.Value)
+				case SKIPLIST_IDX_TIME:
+					fmt.Print("%10q(%10q)  ", q.Key, q.Value)
+				case SKIPLIST_IDX_STRING:
+					fmt.Print("%10q(%10q)  ", q.Key, q.Value)
+				}
+			}
+			p = q
+		}
+		fmt.Println("")
+	}
 	return
 }
