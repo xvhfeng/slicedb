@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"../octp_time"
+
 	"fmt"
 	"os"
 	"strings"
@@ -23,14 +25,14 @@ type Logger struct {
 	prefix  string
 	maxsize uint64
 	size    uint64
-	File    *f
+	f       *os.File
 }
 
-func New(path string, perm FileMode, level int, prefix string, maxsize uint64) (log *logger, error err) {
-	if nil == path || 0 == len(path) {
+func New(path string, level int, prefix string, maxsize uint64) (log *Logger, err error) {
+	if 0 == len(path) {
 		err = fmt.Errorf("the argument:path is error.")
 	}
-	err = os.MkdirAll(path, perm)
+	err = os.MkdirAll(path, 0777)
 	if nil != err {
 		if os.IsExist(err) {
 			err = nil
@@ -39,24 +41,22 @@ func New(path string, perm FileMode, level int, prefix string, maxsize uint64) (
 		}
 	}
 	if !strings.HasSuffix(path, "/") {
-		path += "/"
+		path = strings.Join([]string{path, string(os.PathSeparator)}, "")
 	}
 	log = new(Logger)
 	log.path = path
 	log.level = level
 	log.prefix = prefix
-	log.maxsize = maxisze
+	log.maxsize = maxsize
 	err = log.open()
 	return
 }
 
 func (log *Logger) open() (err error) {
-	t := time.GetNowShortString()
-	p := log.path + t + log.prefix + ".log"
-	log.f, err = os.Open(p, os.O_CREATE|os.O_APPEND)
-	if nil != err {
-		return
-	}
+	t := octp_time.GetNowShortString()
+	p := strings.Join([]string{log.path, t, log.prefix, ".log"}, "")
+	log.f, err = os.OpenFile(p, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
+	return
 }
 
 func (log *Logger) Close() (err error) {
@@ -71,7 +71,7 @@ func (log *Logger) Brush(level int, format string, args ...interface{}) (err err
 	if level < log.level {
 		return
 	}
-	line := fmt.Sprintf(format, args)
+	line := fmt.Sprintf(format, args...)
 	t := octp_time.GetNowLongString()
 	var sLevel string
 	switch level {
@@ -88,17 +88,17 @@ func (log *Logger) Brush(level int, format string, args ...interface{}) (err err
 	case Mark:
 		sLevel = "Mark!"
 	}
-
-	line = t + " " + sLevel + line + "\n"
+	line = strings.Join([]string{sLevel, " ", t, " ", line, "\n"}, "")
+	b := []byte(line)
 	log.locker.Lock()
 	defer log.locker.Unlock()
 	if log.maxsize <= log.size {
 		log.Close()
 		log.open()
 	}
-	_, err = log.f.WriteString(line)
+	_, err = log.f.Write(b)
 	if nil == err {
-		log.size += len(line)
+		log.size += uint64(len(b))
 	}
 	return
 }
