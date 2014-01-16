@@ -18,7 +18,7 @@ const (
 	Mark  = 100
 )
 
-type Logger struct {
+type Log struct {
 	locker  sync.Mutex
 	path    string
 	level   int
@@ -28,7 +28,7 @@ type Logger struct {
 	f       *os.File
 }
 
-func New(path string, level int, prefix string, maxsize uint64) (log *Logger, err error) {
+func New(path string, level int, prefix string, maxsize uint64) (log *Log, err error) {
 	if 0 == len(path) {
 		err = fmt.Errorf("the argument:path is error.")
 	}
@@ -43,7 +43,7 @@ func New(path string, level int, prefix string, maxsize uint64) (log *Logger, er
 	if !strings.HasSuffix(path, "/") {
 		path = strings.Join([]string{path, string(os.PathSeparator)}, "")
 	}
-	log = new(Logger)
+	log = new(Log)
 	log.path = path
 	log.level = level
 	log.prefix = prefix
@@ -52,14 +52,14 @@ func New(path string, level int, prefix string, maxsize uint64) (log *Logger, er
 	return
 }
 
-func (log *Logger) open() (err error) {
+func (log *Log) open() (err error) {
 	t := octp_time.GetNowShortString()
 	p := strings.Join([]string{log.path, t, log.prefix, ".log"}, "")
 	log.f, err = os.OpenFile(p, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0777)
 	return
 }
 
-func (log *Logger) Close() (err error) {
+func (log *Log) Close() (err error) {
 	if nil != log.f {
 		err = log.f.Close()
 	}
@@ -67,7 +67,7 @@ func (log *Logger) Close() (err error) {
 	return
 }
 
-func (log *Logger) Brush(level int, format string, args ...interface{}) (err error) {
+func (log *Log) Brush(level int, format string, args ...interface{}) (err error) {
 	if level < log.level {
 		return
 	}

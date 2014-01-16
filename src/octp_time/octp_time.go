@@ -63,3 +63,13 @@ func GetNowLongString() (rc string) {
 	rc = now.Format(FORMAT_DEFAULT_LONG_STRING)
 	return
 }
+
+func GetDateTimeShortString(t time.Time) (rc string) {
+	rc = t.Format(FORMAT_DEFAULT_SHORT_STRING)
+	return rc
+}
+
+func GetDateTimeLongString(t time.Time) (rc string) {
+	rc = t.Format(FORMAT_DEFAULT_LONG_STRING)
+	return rc
+}
