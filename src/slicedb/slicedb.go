@@ -1,13 +1,23 @@
 package slicedb
 
 import (
+	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 )
 import "../skiplist"
 import "../logger/binlog"
 import "../fileio"
+
+const SlicedbStatusFileName = "slicedb.status"
+
+type SliceStatus struct {
+	XMLName xml.Name  `xml:"slicedb"`
+	begin   time.Time `xml:"begin"`
+}
 
 type Slice struct {
 	pk   *skiplist.SkipList
@@ -27,9 +37,10 @@ type Slice struct {
 }
 
 type Slicedb struct {
-	datapath   string
-	idxpath    string
-	binlogpath string
+	datapath       string
+	idxpath        string
+	binlogpath     string
+	statusfilepath string
 
 	pkField   string
 	idxField0 string
@@ -62,7 +73,7 @@ func (db *Slicedb) SetDataPath(path string) (err error) {
 		db.datapath = "/tmp/slicedb/data/"
 		return
 	}
-	err = os.MkdirAll(path, 0777)
+	err = os.MkdirAll(path, os.ModePerm)
 	if nil != err {
 		if os.IsExist(err) {
 			err = nil
@@ -72,12 +83,25 @@ func (db *Slicedb) SetDataPath(path string) (err error) {
 	db.datapath = path
 }
 
+func (db *Slicedb) SetStatusFilePath(path string) (err error) {
+	if 0 == len(path) {
+		db.statusfilepath = "/tmp/slicedb/status/"
+		return
+	}
+	if err = os.MkdirAll(path, os.ModePerm); nil != err {
+		if os.IsExist(err) {
+			err = nil
+		}
+	}
+	db.statusfilepath = path
+}
+
 func (db *Slicedb) SetIdxPath(path string) (err error) {
 	if 0 == len(path) {
 		db.idxpath = "/tmp/sliedb/idx/"
 		return
 	}
-	err = os.MkdirAll(path, 0777)
+	err = os.MkdirAll(path, os.ModePerm)
 	if nil != err {
 		if os.IsExist(err) {
 			err = nil
@@ -91,7 +115,7 @@ func (db *Slicedb) SetBinlogPath(path string) (err error) {
 		db.binlogpath = "/tmp/slicedb/binlog"
 		return
 	}
-	err = os.MkdirAll(path, 0777)
+	err = os.MkdirAll(path, os.ModePerm)
 	if nil != err {
 		if os.IsExist(err) {
 			err = nil
@@ -158,17 +182,16 @@ func (db *Slicedb) SetBufWriterTimeSpan(s int64) {
 	db.flush = s
 }
 
-/*
-func (db *Slicedb)RunTimes(begin,now time.Time)(m,r int64){
+func (db *Slicedb) RunTimeAndBaseTime(begin, now time.Time) (m int64, t time.Time) {
 	if begin.After(now) {
 		err = fmt.Errorf("the begin time before now.")
 		return
 	}
 	secs := int64(now.Sub(begin).Seconds())
-	m = secs / ts
-    r = secs % ts
+	m = secs / db.ts
+	t = begin.Add(time.Duration(m * time.Second * db.ts))
+	return
 }
-*/
 func (db *Slicedb) BaseTime(begin time.Time, now time.Time,
 	ts int64) (t time.Time, err error) {
 	if begin.After(now) {
@@ -181,17 +204,107 @@ func (db *Slicedb) BaseTime(begin time.Time, now time.Time,
 	return
 }
 
-func (db *Slicedb) SetBeginDateTime(t time.Time) {
+func (db *Slicedb) setBeginDateTime(t time.Time) {
 	if nil == t {
 		t = time.Now()
 	}
 	db.begin = t
 }
 
-func (db *Slicedb) Start() (err error) {
-	//restore the data into memory
-	n := time.Now()
-	t, ok := db.BaseTime(db.begin, n, db.ts)
+func (db *Slicedb) SaveStatusFile(path string, status *SliceStatus) (err error) {
+	if 0 == len(path) {
+		err = fmt.Errorf("the path argument is empty.")
+		return
+	}
+	err = os.MkdirAll(path, 0777)
+	if nil != err {
+		if os.IsExist(err) {
+			err = nil
+		}
+	}
+	s := &SliceStatus{begin: db.begin}
+	var c []byte
+	if c, err = xml.Marshal(s); nil != err {
+		return err
+	}
 
-	//open the current db
+	var fn string
+	if strings.HasSuffix(path, "/") {
+		fn = strings.Join([]string{path, string(os.PathSeparator)}, "")
+	} else {
+		fn = strings.Join([]string{path,
+			string(os.PathSeparator), SlicedbStatusFileName}, "")
+	}
+
+	if err = ioutil.WriteFile(fn, c, os.ModePerm); nil != err {
+		return
+	}
+}
+func (db *Slicedb) loadStatusFile(path string) (err error) {
+	if 0 == len(path) {
+		err = fmt.Errorf("the path argument is empty.")
+		return
+	}
+	err = os.MkdirAll(path, 0777)
+	if nil != err {
+		if os.IsExist(err) {
+			err = nil
+		}
+	}
+	var fn string
+	if strings.HasSuffix(path, "/") {
+		fn = strings.Join([]string{path, string(os.PathSeparator)}, "")
+	} else {
+		fn = strings.Join([]string{path,
+			string(os.PathSeparator), SlicedbStatusFileName}, "")
+	}
+	var c []byte
+	if c, err = ioutil.ReadFile(fn); nil != err {
+		return
+	}
+	var s SliceStatus
+	if err = xml.Unmarshal(c, &s); nil != err {
+		return err
+	}
+	db.setBeginDateTime(s.begin)
+	return
+}
+
+func GetStandardTime(t time.Time) (st time.Time) {
+	st = time.Date(t.Year(), t.Month(), t.Day(),
+		t.Hour(), t.Minute(), 0, time.UTC)
+	return
+}
+
+func (db *Slicedb) NewSlice() (err error) {
+}
+func (db *Slicedb) Start() (err error) {
+	/* 1:compute the times of putting data into memory form begin start time
+		    2:compute the last basetime to now
+		    3;judge the current now is in the last basetime scope
+	        4:if 3 is true,load the current data from data-file into index
+	        5:if 3 is false,load the last idx-file into memory
+	*/
+	// 1
+	now := time.Now()
+	if err = db.loadStatusFile(db.statusfilepath); nil != err {
+		return err
+	} else {
+		db.setBeginDateTime(now)
+	}
+	times, scope := db.RunTimesAndBaseTime(db.begin, now)
+	if 0 == times { //the slicedb is the first starting
+		err = db.NewSlice()
+		return err
+	}
+
+	var t int
+	if times > db.maxSize {
+		t = db.maxSize
+	} else {
+		t = times
+	}
+	for t > 0 {
+
+	}
 }
