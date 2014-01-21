@@ -50,7 +50,7 @@ func randLevel() (level int) {
 	return
 }
 
-func intCmper(key1, key2 interface{}) (rc int8, err error) {
+func intCmper(key1, key2 interface{}) (rc int8, err error) { /*{{{*/
 	var k1, k2 int64
 	var ok bool
 	if k1, ok = key1.(int64); !ok {
@@ -74,9 +74,9 @@ func intCmper(key1, key2 interface{}) (rc int8, err error) {
 	err = fmt.Errorf("the int key cannot compare")
 	rc = 0
 	return
-}
+} /*}}}*/
 
-func uintCmper(key1, key2 interface{}) (rc int8, err error) {
+func uintCmper(key1, key2 interface{}) (rc int8, err error) { /*{{{*/
 	var k1, k2 uint64
 	var ok bool
 	if k1, ok = key1.(uint64); !ok {
@@ -100,9 +100,9 @@ func uintCmper(key1, key2 interface{}) (rc int8, err error) {
 	err = fmt.Errorf("the uint key cannot compare")
 	rc = 0
 	return
-}
+} /*}}}*/
 
-func floatCmper(key1, key2 interface{}) (rc int8, err error) {
+func floatCmper(key1, key2 interface{}) (rc int8, err error) { /*{{{*/
 	var k1, k2 float64
 	var ok bool
 	if k1, ok = key1.(float64); !ok {
@@ -126,13 +126,13 @@ func floatCmper(key1, key2 interface{}) (rc int8, err error) {
 	err = fmt.Errorf("the float key cannot compare")
 	rc = 0
 	return
-}
+} /*}}}*/
 
 /*
    the string cmper is not suppering for Mars lanagreee
    and it only for normal word
 */
-func stringCmper(key1, key2 interface{}) (rc int8, err error) {
+func stringCmper(key1, key2 interface{}) (rc int8, err error) { /*{{{*/
 	var k1, k2 string
 	var ok bool
 	if k1, ok = key1.(string); !ok {
@@ -159,7 +159,7 @@ func stringCmper(key1, key2 interface{}) (rc int8, err error) {
 	return
 	//please put into the code with rune
 	//thanks huanshang
-}
+} /*}}}*/
 
 /*
 huanshan:
@@ -172,7 +172,7 @@ huanshan:
     free means release the memory and the ptr is not change.
     new?? there is no New func in C
 */
-func SkipListCreate(maxLevel int, idxType int) (sl *SkipList, err error) {
+func New(maxLevel int, idxType int) (sl *SkipList, err error) {
 	if 0 >= maxLevel {
 		sl = nil
 		err = fmt.Errorf("create skiplist is fail.")
@@ -206,7 +206,7 @@ func SkipListCreate(maxLevel int, idxType int) (sl *SkipList, err error) {
 	return
 }
 
-func (sl *SkipList) Insert(key, val interface{}) (err error) {
+func (sl *SkipList) Insert(level int, key interface{}, val interface{}) (err error) {
 	update := make([]*SkipListNode, sl.MaxLevel)
 	var r int8
 	p := sl.Head
@@ -233,8 +233,12 @@ func (sl *SkipList) Insert(key, val interface{}) (err error) {
 			}
 		}
 	}
-
-	k := randLevel()
+	var k int
+	if 0 == level {
+		k = randLevel()
+	} else {
+		k = level
+	}
 	if k > sl.Level {
 		for i := sl.Level + 1; i <= k; i++ {
 			update[i] = sl.Head
