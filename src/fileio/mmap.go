@@ -89,6 +89,7 @@ func (m *MMap) Unmap() error {
 	*m = nil
 	return err
 }
+
 func mmap(len int, inprot, inflags, fd uintptr, off int64) ([]byte, error) {
 	flags := syscall.MAP_SHARED
 	prot := syscall.PROT_READ
