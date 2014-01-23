@@ -24,6 +24,8 @@ const (
 	SKIPLIST_IDX_STRING = 2
 	SKIPLIST_IDX_FLOAT  = 4
 	SKIPLIST_IDX_TIME   = 8
+
+	SKIPLIST_RLEVEL = -1
 )
 
 const SKIPLISTMAXLEVEL = 16
@@ -42,6 +44,9 @@ type SkipListNode struct {
 	Key      interface{}
 	Value    interface{}
 	Next     []*SkipListNode
+	p        *SkipListNode
+	min      *SkipListNode
+	max      *SkipListNode
 }
 
 func randLevel() (level int) {
@@ -172,7 +177,7 @@ huanshan:
     free means release the memory and the ptr is not change.
     new?? there is no New func in C
 */
-func New(maxLevel int, idxType int) (sl *SkipList, err error) {
+func New(maxLevel int, idxType int) (sl *SkipList, err error) { /*{{{*/
 	if 0 >= maxLevel {
 		sl = nil
 		err = fmt.Errorf("create skiplist is fail.")
@@ -204,9 +209,9 @@ func New(maxLevel int, idxType int) (sl *SkipList, err error) {
 	}
 	err = nil
 	return
-}
+} /*}}}*/
 
-func (sl *SkipList) Insert(level int, key interface{}, val interface{}) (err error) {
+func (sl *SkipList) Insert(level int, key interface{}, val interface{}) (err error) { /*{{{*/
 	update := make([]*SkipListNode, sl.MaxLevel)
 	var r int8
 	p := sl.Head
@@ -234,7 +239,7 @@ func (sl *SkipList) Insert(level int, key interface{}, val interface{}) (err err
 		}
 	}
 	var k int
-	if 0 == level {
+	if 0 > level {
 		k = randLevel()
 	} else {
 		k = level
@@ -254,10 +259,11 @@ func (sl *SkipList) Insert(level int, key interface{}, val interface{}) (err err
 		n.Next[i] = update[i].Next[i]
 		update[i].Next[i] = n
 	}
+	n.p = update[0] //  set the prev pointer
 	return
-}
+} /*}}}*/
 
-func (sl *SkipList) Find(key interface{}) (rc interface{}, err error) {
+func (sl *SkipList) Find(key interface{}) (rc interface{}, err error) { /*{{{*/
 	var r int8
 	p := sl.Head
 	for i := sl.Level; i >= 0; i-- {
@@ -285,10 +291,10 @@ func (sl *SkipList) Find(key interface{}) (rc interface{}, err error) {
 	rc = nil
 	err = fmt.Errorf("the object is not exist")
 	return
-}
+} /*}}}*/
 
 func (sl *SkipList) Search(from, to interface{}) (
-	rc map[interface{}]interface{}, err error) {
+	rc map[interface{}]interface{}, err error) { /*{{{*/
 	update := make([]*SkipListNode, sl.MaxLevel)
 	var r int8
 	p := sl.Head
@@ -343,9 +349,54 @@ func (sl *SkipList) Search(from, to interface{}) (
 	}
 	err = nil
 	return
-}
+} /*}}}*/
 
-func (sl *SkipList) Print() (err error) {
+func (sl *SkipList) Delete(key interface{}) (err error) {
+	var r int8
+	p := sl.Head
+	var e SkipListNode
+out:
+	for i := sl.Level; i >= 0; i-- {
+		for {
+			q := p.Next[i]
+			if nil == q {
+				break
+			} else {
+				r, err = sl.Cmper(q.Key, key)
+				if nil != err {
+					return
+				}
+				if 0 > r {
+					p = q
+				} else if 0 == r {
+					e = q
+					break out
+				} else {
+					break
+				}
+			}
+		}
+	}
+
+	if nil == e {
+		err = nil
+		return
+	}
+
+	for i := e.Level; i >= 0; i-- {
+		e.p.Next[i] = e.Next[i]
+	}
+	if e.Level == sl.Level {
+		for i := e.Level; i >= 0; i-- {
+			if nil != sl.Head.Next[i] {
+				sl.Level = i
+				break
+			}
+		}
+	}
+
+}
+func (sl *SkipList) Print() (err error) { /*{{{*/
 	for i := sl.Level; i >= 0; i-- {
 		p := sl.Head
 		for {
@@ -379,4 +430,4 @@ func (sl *SkipList) Print() (err error) {
 		fmt.Println("")
 	}
 	return
-}
+} /*}}}*/

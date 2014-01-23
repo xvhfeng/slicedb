@@ -14,7 +14,9 @@ import "../fileio"
 const (
 	SlicedbStatusFileName      = "slicedb.status"
 	ErrSliceIdxFileIdxOutScope = errors.New("slice idx file out of scope")
-	SlicedbRuntimeFileName     = "slicedb.runtime"
+	SlicedbFlushStatusFileName = "slicedbFlush.status"
+	ErrStatusFileNotExist      = errors.New("slicedb status file is not exist.")
+	ErrFlushStatusFileNotExist = errors.New("slicedb flush status fils is not exist")
 )
 
 type Slicepk struct { //the pk struct in the memory
@@ -29,14 +31,14 @@ type SliceIdx struct {
 	sum []byte //the recode md5 sum
 }
 type SliceStatus struct {
-	XMLName xml.Name  `xml:"slicedb"`
-	begin   time.Time `xml:"begin"`
+	XMLName xml.Name  `xml:"Slicedb"`
+	begin   time.Time `xml:"Begin"`
 }
 
-type SliceRuntime struct {
-	scope time.Time `xml:"CurrentScope"`
+type SliceFlushStatus struct {
+	XMLName xml.Name  `xml:"SlicedbFlush"`
+	scope   time.Time `xml:"LastFlushScope"`
 	//the last complete slice pk and idx skiplist is flush to disk
-	isflush bool `xml:"IsLastFlush"`
 }
 
 type Slice struct {
@@ -57,11 +59,11 @@ type Slice struct {
 }
 
 type Slicedb struct {
-	datapath        string
-	idxpath         string
-	binlogpath      string
-	statusfilepath  string
-	runtimefilepath string
+	dataPath        string
+	idxPath         string
+	binlogPath      string
+	statusPath      string
+	flushStatusPath string
 
 	pkField   string
 	idxField0 string
@@ -77,11 +79,13 @@ type Slicedb struct {
 	idxs    *skiplist.ShipList
 	ts      int //the slice timespan
 	// if in c,i store size fd with mmap for reads
-	bufsize int64 //the bufriter buffer size
+	bufSize int64 //the bufriter buffer size
 
-	begin time.Time
-	flush int //the file flush into io timespan
-	log   *logger.Log
+	/* begin time.Time */
+	status      SliceStatus
+	flushStatus SliceFlushStatus
+	/* flush       int //the file flush into io timespan */
+	log *logger.Log
 }
 
 func NewSlicedb(log *logger.Log) (db *Slicedb, err error) {
@@ -123,11 +127,6 @@ func SliceNow() (t time.Time) {
 
 func (db *Slicedb) NewSlice() (err error) {
 
-}
-func (db *Slicedb) RestoreSlice(t time.Time) {
-	for i := 0; ; i++ {
-
-	}
 }
 func (db *Slicedb) Start() (err error) {
 	/* 1:compute the times of putting data into memory form begin start time

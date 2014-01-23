@@ -17,69 +17,76 @@ func getFilepath(path, file string) (filename string) {
 	}
 	return filename
 }
-func (db *Slicedb) SaveStatusFile(path string, status *SliceStatus) (err error) { /*{{{*/
+
+func (db *Slicedb) SaveStatus(path string, status *SliceStatus) error { /*{{{*/
+	var err error
 	if 0 == len(path) {
-		err = fmt.Errorf("the path argument is empty.")
-		return
+		return fmt.Errorf("the path argument is empty.")
 	}
-	err = os.MkdirAll(path, 0777)
-	if nil != err {
-		if os.IsExist(err) {
-			err = nil
-		}
+
+	if err = os.MkdirAll(path, os.ModePerm); nil != err {
+		return err
 	}
 	s := &SliceStatus{begin: db.begin}
 	var c []byte
 	if c, err = xml.Marshal(s); nil != err {
 		return err
 	}
-	fn := getFilepath(db.statusfilepath, SlicedbStatusFileName)
+	fn := getFilepath(db.statusPath, SlicedbStatusFileName)
 	if err = ioutil.WriteFile(fn, c, os.ModePerm); nil != err {
-		return
+		return err
 	}
+	return nil
 } /*}}}*/
 
-func (db *Slicedb) loadStatusFile(path string) (err error) { /*{{{*/
+func (db *Slicedb) loadStatus(path string) error { /*{{{*/
+	var err error
 	if 0 == len(path) {
-		err = fmt.Errorf("the path argument is empty.")
-		return
+		return fmt.Errorf("the path argument is empty.")
 	}
-	err = os.MkdirAll(path, 0777)
-	if nil != err {
-		if os.IsExist(err) {
-			err = nil
-		}
-	}
-	fn := getFilepath(db.statusfilepath, SlicedbStatusFileName)
+	fn := getFilepath(db.statusPath, SlicedbStatusFileName)
 	var c []byte
 	if c, err = ioutil.ReadFile(fn); nil != err {
-		return
+		return err
 	}
 	var s SliceStatus
 	if err = xml.Unmarshal(c, &s); nil != err {
 		return err
 	}
 	db.setBeginDateTime(s.begin)
-	return
+	return nil
 } /*}}}*/
 
-func (db *Slicedb) loadRuntimeFile() (err error) {
+func (db *Slicedb) loadFlushRuntime() error { /*{{{*/
+	var err error
 	if 0 == len(path) {
-		err = fmt.Errorf("the path argument is empty.")
-		return
+		return fmt.Errorf("the path argument is empty.")
 	}
-	if err = os.MkdirAll(path, 0777); nil != err {
-		if os.IsExist(err) {
-			err = nil
-		}
-	}
-	fn := getFilepath(db.runtimefilepath, SlicedbRuntimeFileName)
+	fn := getFilepath(db.flushStatusPath, SlicedbFlushStatusFileName)
 	var c []byte
 	if c, err = ioutil.ReadFile(fn); nil != err {
-		return
-	}
-	var s SliceRuntime
-	if err = xml.Unmarshal(c, &s); nil != err {
 		return err
 	}
-}
+	if err = xml.Unmarshal(c, db.flushStatus); nil != err {
+		return err
+	}
+} /*}}}*/
+
+func (db *Slicedb) SaveFlushRuntime() error { /*{{{*/
+	if 0 == len(path) {
+		return fmt.Errorf("the path argument is empty.")
+	}
+	err = os.MkdirAll(path, 0777)
+	if err = os.MkdirAll(db.flushStatusPath, os.ModePerm); nil != err {
+		return err
+	}
+	var c []byte
+	if c, err = xml.Marshal(&(db.flushStatus)); nil != err {
+		return err
+	}
+	fn := getFilepath(db.flushStatusPath, SlicedbFlushStatusFileName)
+	if err = ioutil.WriteFile(fn, c, os.ModePerm); nil != err {
+		return err
+	}
+	return nil
+} /*}}}*/
