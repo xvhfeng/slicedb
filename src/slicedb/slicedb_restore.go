@@ -5,6 +5,7 @@ import "time"
 func (db *Slicedb) RestoreSlice(t time.Time) {
 	for i := 0; ; i++ {
 		if t.Before(db.flushStatus.scope) { // read binlog
+
 		} else { //read idx-file
 		}
 	}

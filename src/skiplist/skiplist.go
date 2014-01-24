@@ -36,6 +36,8 @@ type SkipList struct {
 	MaxLevel int
 	Head     *SkipListNode
 	Cmper    func(key1, key2 interface{}) (rc int8, err error)
+	min      *SkipListNode
+	max      *SkipListNode
 }
 
 type SkipListNode struct {
@@ -45,8 +47,6 @@ type SkipListNode struct {
 	Value    interface{}
 	Next     []*SkipListNode
 	p        *SkipListNode
-	min      *SkipListNode
-	max      *SkipListNode
 }
 
 func randLevel() (level int) {
@@ -260,6 +260,21 @@ func (sl *SkipList) Insert(level int, key interface{}, val interface{}) (err err
 		update[i].Next[i] = n
 	}
 	n.p = update[0] //  set the prev pointer
+	if nil == sl.min {
+		sl.min = n
+	} else {
+		if 0 < sl.Cmper(key, sl.min.Key) {
+			sl.min = &n
+		}
+	}
+
+	if nil == sl.max {
+		sl.max = n
+	} else {
+		if 0 > sl.Cmper(key, sl.msx.Key) {
+			sl.max = &n
+		}
+	}
 	return
 } /*}}}*/
 
@@ -351,7 +366,7 @@ func (sl *SkipList) Search(from, to interface{}) (
 	return
 } /*}}}*/
 
-func (sl *SkipList) Delete(key interface{}) (err error) {
+func (sl *SkipList) Delete(key interface{}) (err error) { /*{{{*/
 	var r int8
 	p := sl.Head
 	var e SkipListNode
@@ -395,7 +410,16 @@ out:
 		}
 	}
 
-}
+	if 0 == sl.Cmper(e.Key, sl.min.Key) {
+		sl.min = e.Next[0]
+	}
+
+	if 0 == sl.Cmper(key, sl.msx.Key) {
+		sl.max = e.p
+	}
+	return err
+} /*}}}*/
+
 func (sl *SkipList) Print() (err error) { /*{{{*/
 	for i := sl.Level; i >= 0; i-- {
 		p := sl.Head

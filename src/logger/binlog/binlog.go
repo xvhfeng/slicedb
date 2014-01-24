@@ -1,6 +1,7 @@
 package binlog
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -91,6 +92,7 @@ func (binlog *Binlog) Brush(format string, args ...interface{}) (err error) {
 	}
 	buf := new(bytes.Buffer)
 	err = binary.Write(buf, binary.LittleEndian, line)
+	err = binary.Write(buf, binary.LittleEndian, '\n')
 	if nil != err {
 		if nil != binlog.log {
 			binlog.log.Brush(logger.Error, "write binlog:%v is fail.",
@@ -106,87 +108,43 @@ func (binlog *Binlog) Brush(format string, args ...interface{}) (err error) {
 	return
 }
 
-/* const BINLOG_READER_BUFFER_SIZE = 1024 */
-/*
 type BinlogReader struct {
-    basepath string
-    t        time.Time
-    timeSpan int64
-    idx      int
-    offset int64
-    maxsize	 int64
-    f        *os.File
-    log      *logger.Log
+	offset int64
+	f      *os.File
+	reader bufio.Reader
+	log    *logger.Log
 }
 
-func NewBinlogReader(basepath string, time time.Time, idx int,
-timeSpan int64, offset uint64, log *logger.Log) (binlog *BinlogReader, err error) {
-    if 0 >= len(basepath) {
-        err = fmt.Errorf("the argument is fail.")
-        return
-    }
-    if !strings.HasSuffix(path, "/") {
-        basepath = strings.Join([]string{basepath, string(os.PathSeparator)}, "")
-    }
-    binlog = new(BinlogReader)
-    binlog.basepath = basepath
-    binlog.idx = idx
-    binlog.t = time
-    binlog.timeSpan = timeSpan
-    binlog.offset = offset
-    binlog.log = log
-    err = binlog.openBinlogReader()
-    return
+func NewBinlogReader(path string, t time.Time, idx int,
+	offset int64, log *logger.Log) (BinlogReader, error) {
+	var r *BinlogReader
+
+	r = new(BinlogReader)
+	fn := binlogFilename(t, path, idx)
+	if f, err := os.Open(fn); nil != err {
+		return nil, err
+	} else {
+		if 0 != offset {
+			if _, err = f.Seek(offset, os.SEEK_CUR); nil != err {
+				return nil, err
+			}
+		}
+		r.f = f
+		r.reader = bufio.NewReader(f)
+		r.offset = offset
+		r.log = log
+	}
+	return r, nil
 }
 
-func (binlog *BinlogReader)openBinlogReader()(err error){
-    for{
-        filename := binlogFilename(binlog.t,binlog.basepath,binlog.idx)
-        f,ok := os.Open(filename);
-        if os.IsNotExist(ok){
-            t := binlog.t.Add(time.Duration(binlog.timeSpan) * time.Second)
-            if t.Before(time.Now()){
-                binlog.t = t
-                binlog.idx = 0;
-                binlog.offset = 0
-                continue
-            } else{
-                err = fmt.Errorf("the binlog is poll to current time,
-                then no the binlog file.")
-                return
-            }
-        } else {
-            binlog.f = f;
-            if(0 != binlog.offset){
-                binlog.f.Seek(binlog.offset,os.SEEK_SET)
-            }
-            break
-        }
-    }
-    return
+func (r *BinlogReader) Read() (line []byte, err error) {
+	if line, err = r.reader.ReadBytes('\n'); nil != err {
+		return
+	}
+	r.offset += len(line)
+	return
 }
 
-func (binlog *BinlogReader) Close(isFlushStateFile bool) {
-    if isFlushStateFile {
-    }
-    close(binlog.f)
+func (r *BinlogReader) Close() {
+	r.f.Close()
 }
-func (binlog *Binlog) Read() (b []byte, err error) {
-    l := int(unsafe.Sizeof(0)) //the int bytes length
-    buf := make([]byte, BINLOG_READER_BUFFER_SIZE)
-    for{
-        var i int
-        i,err = binlog.f.Read(buf)
-        if nil != err{
-            if(io.EOF != err) {
-                return
-            } else {
-                binlog.f.Close(false)
-                binlog.f.openBinlogReader()
-                continue
-            }
-        }
-        break;
-    }
-}
-*/
