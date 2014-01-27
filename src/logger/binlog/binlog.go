@@ -1,3 +1,6 @@
+/*
+* binlog format:op|file-idx|offset|len|
+ */
 package binlog
 
 import (
@@ -16,7 +19,7 @@ const (
 	D = 0x02
 )
 
-type Binlog struct {
+type Writer struct {
 	locker   sync.Mutex
 	basepath string
 	t        time.Time
@@ -35,9 +38,9 @@ func binlogFilename(t time.Time, basepath string, idx int) (filename string) {
 	return filename
 }
 
-func NewBinlog(basepath string, time time.Time,
+func NewWriter(basepath string, time time.Time,
 	timeSpan int64, maxsize uint64,
-	log *logger.Log) (binlog *Binlog, err error) {
+	log *logger.Log) (binlog *Writer, err error) {
 	if 0 == len(basepath) {
 		err = fmt.Errorf("the argument:basepath is error.")
 		return
@@ -53,7 +56,7 @@ func NewBinlog(basepath string, time time.Time,
 	if !strings.HasSuffix(path, "/") {
 		basepath = strings.Join([]string{basepath, string(os.PathSeparator)}, "")
 	}
-	binlog = new(Binlog)
+	binlog = new(Writer)
 	binlog.basepath = basepath
 	binlog.maxsize = maxsize
 	binlog.t = time
@@ -63,7 +66,7 @@ func NewBinlog(basepath string, time time.Time,
 	return
 }
 
-func (binlog *Binlog) open() (err error) {
+func (binlog *Writer) open() (err error) {
 	t := time.Now()
 	if t.Sub(binlog.t).Seconds() > binlog.timespan {
 		binlog.t = t
@@ -73,7 +76,7 @@ func (binlog *Binlog) open() (err error) {
 	return
 }
 
-func (binlog *Binlog) Close() (err error) {
+func (binlog *Writer) Close() (err error) {
 	if nil != binlog.f {
 		err = binlog.f.Close()
 	}
@@ -81,7 +84,7 @@ func (binlog *Binlog) Close() (err error) {
 	return
 }
 
-func (binlog *Binlog) Brush(format string, args ...interface{}) (err error) {
+func (binlog *Writer) Brush(format string, args ...interface{}) (err error) {
 	line := fmt.Sprintf(format, args...)
 	binlog.locker.Lock()
 	defer binlog.locker.Unlock()
@@ -108,18 +111,18 @@ func (binlog *Binlog) Brush(format string, args ...interface{}) (err error) {
 	return
 }
 
-type BinlogReader struct {
+type Reader struct {
 	offset int64
 	f      *os.File
 	reader bufio.Reader
 	log    *logger.Log
 }
 
-func NewBinlogReader(path string, t time.Time, idx int,
-	offset int64, log *logger.Log) (BinlogReader, error) {
-	var r *BinlogReader
+func NewReader(path string, t time.Time, idx int,
+	offset int64, log *logger.Log) (Reader, error) {
+	var r *Reader
 
-	r = new(BinlogReader)
+	r = new(Reader)
 	fn := binlogFilename(t, path, idx)
 	if f, err := os.Open(fn); nil != err {
 		return nil, err
@@ -137,7 +140,7 @@ func NewBinlogReader(path string, t time.Time, idx int,
 	return r, nil
 }
 
-func (r *BinlogReader) Read() (line []byte, err error) {
+func (r *Reader) Read() (line []byte, err error) {
 	if line, err = r.reader.ReadBytes('\n'); nil != err {
 		return
 	}
@@ -145,6 +148,12 @@ func (r *BinlogReader) Read() (line []byte, err error) {
 	return
 }
 
-func (r *BinlogReader) Close() {
+func (r *Reader) ExpLine(buff []byte) (line string, err error) {
+	b := bytes.NewReader(buff)
+	err = binary.Read(b, binary.LittleEndian, &line)
+	return
+}
+
+func (r *Reader) Close() {
 	r.f.Close()
 }

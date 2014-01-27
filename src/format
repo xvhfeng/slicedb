@@ -1,0 +1,18 @@
+# This document describes all formats
+
+1:binlog OP|FILEIDX|OFFSET|LENGTH
+    OP:0x01/0x02,this operater for the recode
+    FILEIDX:int,which context-file store the recode
+    OFFSET:uint64,the recode's seat in context-file
+    LENGTH:int,the recode's length in context-file
+2:context-file LEN|ISDELETE|VERSION|VALUE
+    LEN:int,the recode's length consist of self-description information
+    ISDELETE:0x00/0x01,recode's operation
+    VERSION:int,the operation's version.not the recode's version
+    VALUE:byte,the recode context,it's fotmat by JSON
+3:PK KEY|VALUE
+    KEY:string,the PK context
+    VALUE:FILEIDX|OFFSET|LENGTH
+4:IDX KEY|VALUE
+    KEY:string,rhe idx context
+    VALUE:FILEIDX|OFFSET|LENGTH
